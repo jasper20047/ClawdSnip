@@ -15,12 +15,18 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.1.0</string>
+	<string>0.3.0</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>3</string>
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSHighResolutionCapable</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>仅在你开启“录制麦克风”时，将麦克风声音加入录像。关闭此选项时不会访问麦克风。</string>
+	<key>NSAudioCaptureUsageDescription</key>
+	<string>在你开启“录制电脑声音”时，将电脑内部播放的声音加入录像。</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>15.0</string>
 </dict>
 </plist>

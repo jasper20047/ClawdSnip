@@ -21,9 +21,12 @@ func buildMenu() -> [MenuItem] {
     [
         MenuItem(title: "框选截图", icon: Icons.region) { $0.capture(.region) },
         MenuItem(title: "窗口截图", icon: Icons.window) { $0.capture(.window) },
+        MenuItem(title: "录屏…", icon: Icons.record) { $0.showRecording() },
         MenuItem.toggle(title: "自动粘贴", icon: Icons.paste,
                         isOn: { Prefs.autoPaste }, flip: { Prefs.autoPaste.toggle() }),
         .separator,
+        MenuItem(title: "设置…", icon: Icons.settings) { $0.showSettings() },
+        MenuItem(title: "隐藏宠物", icon: Icons.hide) { $0.setPetVisible(false) },
         MenuItem(title: "退出", icon: Icons.quit) { _ in NSApp.terminate(nil) },
     ]
 }
@@ -69,6 +72,9 @@ enum Icons { // 菜单图标 7×7
     static let region = ["###.###", "#.....#", "#.....#", ".......", "#.....#", "#.....#", "###.###"]
     static let window = ["#######", "#######", "#.....#", "#.....#", "#.....#", "#.....#", "#######"]
     static let paste = ["..###..", "#######", "#.....#", "#.###.#", "#.....#", "#.##..#", "#######"]
+    static let record = ["..###..", ".#####.", "#######", "#######", "#######", ".#####.", "..###.."]
+    static let settings = ["..#.#..", ".#####.", "##...##", ".#.#.#.", "##...##", ".#####.", "..#.#.."]
+    static let hide = [".......", ".#####.", "#.....#", "#..#..#", "#.....#", ".#####.", "......."]
     static let quit = ["#.....#", ".#...#.", "..#.#..", "...#...", "..#.#..", ".#...#.", "#.....#"]
 }
 
@@ -701,6 +707,79 @@ final class Controller: NSObject, NSApplicationDelegate {
     private var busy = false
     private var askedAccessibility = false
     private var askedScreenRecording = false
+    private let recordingUI = RecordingUI()
+    private var hotKeys: GlobalHotKeys?
+    private var settingsUI: SettingsUI?
+    private var statusMenu: AppStatusMenu?
+    private var petVisible: Bool { UserDefaults.standard.object(forKey: "petVisible") as? Bool ?? true }
+
+    func showSettings() {
+        collapse(animated: false)
+        settingsUI?.show()
+    }
+
+    func setPetVisible(_ visible: Bool) {
+        UserDefaults.standard.set(visible, forKey: "petVisible")
+        hoverGen += 1; collapse(animated: false)
+        hovered = false
+        hoverWatch?.invalidate(); hoverWatch = nil
+        toastGen += 1; toastPanel?.orderOut(nil)
+        tickTimer?.invalidate(); tickTimer = nil
+        if visible && !busy { panel.orderFrontRegardless(); wakeLife() }
+        else { panel.orderOut(nil) }
+    }
+
+    private func perform(_ action: AppAction) {
+        switch action {
+        case .region: capture(.region)
+        case .window: capture(.window)
+        case .recording:
+            guard !busy else { return }
+            collapse(animated: false)
+            recordingUI.handleShortcut()
+        case .quit: NSApp.terminate(nil)
+        case .togglePet: setPetVisible(!petVisible)
+        }
+    }
+
+    private func configureSettings() {
+        do {
+            let keys = try GlobalHotKeys()
+            hotKeys = keys
+            keys.onAction = { [weak self] in self?.perform($0) }
+            settingsUI = SettingsUI(hotKeys: keys, getVisibility: { [weak self] in self?.petVisible ?? true }, setVisibility: { [weak self] in self?.setPetVisible($0) })
+            try keys.restore()
+        } catch {
+            DispatchQueue.main.async {
+                let alert = NSAlert(); alert.messageText = "快捷键未能全部启用"
+                alert.informativeText = error.localizedDescription + "\n可在菜单栏 → 设置中修改。"
+                alert.runModal()
+            }
+        }
+        let menu = AppStatusMenu()
+        menu.onAction = { [weak self] in self?.perform($0) }
+        menu.onSettings = { [weak self] in self?.showSettings() }
+        menu.isPetVisible = { [weak self] in self?.petVisible ?? true }
+        menu.shortcuts = { [weak self] in self?.hotKeys?.bindings ?? [:] }
+        statusMenu = menu
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        setPetVisible(true); showSettings(); return false
+    }
+
+    func applicationWillTerminate(_ notification: Notification) { hotKeys?.shutdown() }
+
+
+    func showRecording() {
+        guard !busy else { return }
+        collapse(animated: false)
+        recordingUI.show()
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        recordingUI.shouldTerminate()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let me = NSRunningApplication.current
@@ -721,8 +800,9 @@ final class Controller: NSObject, NSApplicationDelegate {
         stage.onPointer = { [weak self] in self?.checkHover() }
         panel.contentView = stage
         panel.alphaValue = idleAlpha
-        panel.orderFrontRegardless()
+        if petVisible { panel.orderFrontRegardless() }
 
+        configureSettings()
         wakeLife()
 
         let ws = NSWorkspace.shared.notificationCenter
@@ -735,6 +815,8 @@ final class Controller: NSObject, NSApplicationDelegate {
 
         // 录屏权限不在启动时要，等第一次截图时再要
         toast("Clawd 就位 · 悬停展开")
+        if CommandLine.arguments.contains("--recording-settings") { showRecording() }
+        if CommandLine.arguments.contains("--settings") { showSettings() }
     }
 
     @objc private func pause() { paused = true; tickTimer?.invalidate(); tickTimer = nil }
@@ -767,7 +849,7 @@ final class Controller: NSObject, NSApplicationDelegate {
         if scheduled { dt = pendingTicks }
         else if lastAdvance > 0 { dt = min(pendingTicks, max(0, Int((now - lastAdvance) * tickHz))) }
         lastAdvance = now
-        guard !busy, !paused else { return }
+        guard !busy, !paused, petVisible else { return }
 
         var next = life.advance(dt)
         if let change { change(); next = life.advance(0) }
@@ -792,7 +874,7 @@ final class Controller: NSObject, NSApplicationDelegate {
     }
 
     private func checkHover() {
-        guard !busy, panel.isVisible, !stage.dragging else { return }
+        guard !busy, petVisible, panel.isVisible, !stage.dragging else { return }
         let r = clawdScreenRect().insetBy(dx: -2, dy: -2)
         let m = NSEvent.mouseLocation
         let inside = r.contains(m)
@@ -873,7 +955,7 @@ final class Controller: NSObject, NSApplicationDelegate {
     // MARK: 悬停展开菜单
 
     private func pointerEntered() {
-        guard !busy, !stage.dragging else { return }
+        guard !busy, petVisible, !stage.dragging else { return }
         collapseGen += 1
         if menuPanel?.isVisible == true { return }
         hoverGen += 1
@@ -895,7 +977,7 @@ final class Controller: NSObject, NSApplicationDelegate {
     }
 
     private func expand() {
-        guard !busy else { return }
+        guard !busy, petVisible else { return }
         let items = buildMenu()
         let size = NSSize(width: MenuView.width, height: MenuView.height(for: items))
         let (target, dx, dy) = placement(for: size, gap: 4)
@@ -951,7 +1033,7 @@ final class Controller: NSObject, NSApplicationDelegate {
     // MARK: 提示
 
     func toast(_ text: String, seconds: Double = 1.8) {
-        guard menuPanel?.isVisible != true else { return }
+        guard petVisible, menuPanel?.isVisible != true else { return }
         toastGen += 1
         let gen = toastGen
         let (rect, _, _) = placement(for: ToastView.size(for: text), gap: 4)
@@ -992,7 +1074,7 @@ final class Controller: NSObject, NSApplicationDelegate {
     }
 
     func capture(_ mode: CaptureMode) {
-        guard !busy else { return }
+        guard !busy, !recordingUI.isBusy else { toast("请先完成录屏"); return }
         guard ensureScreenRecording() else { return }
         collapse(animated: false)
         if hovered { setHovered(false) }
@@ -1028,7 +1110,7 @@ final class Controller: NSObject, NSApplicationDelegate {
     private func finishCapture(file: URL, claude: NSRunningApplication?, claudeWasFront: Bool) {
         busy = false
         panel.alphaValue = idleAlpha
-        panel.orderFrontRegardless()
+        if petVisible { panel.orderFrontRegardless() }
         wakeLife()
         checkHover()
 
