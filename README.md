@@ -16,6 +16,8 @@
 - 设置窗口中的原生开机启动开关。
 - 隐藏宠物后保留菜单栏入口，快捷键继续可用；再次打开应用也可找回。
 
+发布文件也保存在 [`dist`](dist) 目录；[源码包](https://github.com/jasper20047/ClawdSnip/raw/refs/tags/v0.3.0/dist/ClawdSnip-v0.3.0-source.zip) · [SHA-256 校验文件](https://github.com/jasper20047/ClawdSnip/blob/v0.3.0/dist/SHA256SUMS-v0.3.0.txt)。
+
 ## 系统要求
 
 - macOS 15 或更新版本。
@@ -25,7 +27,7 @@
 
 ## 下载安装
 
-1. 打开 [Releases](https://github.com/jasper20047/ClawdSnip/releases)，下载 `ClawdSnip-v0.3.0-macos-arm64.zip`。
+1. 打开 [Releases](https://github.com/jasper20047/ClawdSnip/releases)，点击安装包下载链接；也可直接[下载 Apple 芯片版](https://github.com/jasper20047/ClawdSnip/raw/refs/tags/v0.3.0/dist/ClawdSnip-v0.3.0-macos-arm64.zip)。
 2. 解压后，把 `ClawdSnip.app` 放到个人的“应用程序”文件夹（`~/Applications`），再打开。
 3. 这是采用临时签名、未经 Apple 公证的本机构建。若 macOS 阻止打开，请在确认下载来源后，按系统“隐私与安全性”中的提示处理；无需关闭系统安全保护。
 

@@ -1,0 +1,2 @@
+756a32a826f578b031a9f080aa3740d9b16249c412a384abdf6fbfc7642685a4  ClawdSnip-v0.3.0-macos-arm64.zip
+a906d5b22a435b42c6503dd5c256a869aa6f5db85670b813ef8ed7dfeec9facd  ClawdSnip-v0.3.0-source.zip
