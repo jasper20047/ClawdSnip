@@ -49,7 +49,9 @@ struct RecordingOptions {
         config.width = size.width
         config.height = size.height
         config.minimumFrameInterval = CMTime(value: 1, timescale: 30)
-        config.queueDepth = 3
+        // SCRecordingOutput needs enough in-flight surfaces for its video encoder.
+        // A three-frame pool stalls after the initial frames on supported macOS builds.
+        config.queueDepth = 8
         config.showsCursor = true
         config.capturesAudio = systemAudio
         config.captureMicrophone = microphone

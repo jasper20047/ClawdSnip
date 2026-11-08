@@ -6,7 +6,7 @@
 
 ![上游宠物与菜单预览](docs/preview.png)
 
-最新版本：**v0.4.0**，新增截图保存开关与长截图。
+最新版本：**v0.4.1**，修复录屏画面停在开头的问题，保留截图保存开关与长截图。
 
 ## 新增功能
 
@@ -22,7 +22,7 @@
 - 设置窗口中的原生开机启动开关。
 - 隐藏宠物后保留菜单栏入口，快捷键继续可用；再次打开应用也可找回。
 
-发布文件也保存在 [`dist`](dist) 目录；[源码包](https://github.com/jasper20047/ClawdSnip/raw/refs/tags/v0.4.0/dist/ClawdSnip-v0.4.0-source.zip) · [SHA-256 校验文件](https://github.com/jasper20047/ClawdSnip/blob/v0.4.0/dist/SHA256SUMS-v0.4.0.txt)。
+发布文件也保存在 [`dist`](dist) 目录；[源码包](https://github.com/jasper20047/ClawdSnip/raw/refs/tags/v0.4.1/dist/ClawdSnip-v0.4.1-source.zip) · [SHA-256 校验文件](https://github.com/jasper20047/ClawdSnip/blob/v0.4.1/dist/SHA256SUMS-v0.4.1.txt)。
 
 ## 系统要求
 
@@ -33,7 +33,7 @@
 
 ## 下载安装
 
-1. 打开 [Releases](https://github.com/jasper20047/ClawdSnip/releases)，点击安装包下载链接；也可直接[下载 Apple 芯片版](https://github.com/jasper20047/ClawdSnip/raw/refs/tags/v0.4.0/dist/ClawdSnip-v0.4.0-macos-arm64.zip)。
+1. 打开 [Releases](https://github.com/jasper20047/ClawdSnip/releases)，点击安装包下载链接；也可直接[下载 Apple 芯片版](https://github.com/jasper20047/ClawdSnip/raw/refs/tags/v0.4.1/dist/ClawdSnip-v0.4.1-macos-arm64.zip)。
 2. 解压后，把 `ClawdSnip.app` 放到个人的“应用程序”文件夹（`~/Applications`），再打开。
 3. 这是采用临时签名、未经 Apple 公证的本机构建。若 macOS 阻止打开，请在确认下载来源后，按系统“隐私与安全性”中的提示处理；无需关闭系统安全保护。
 
@@ -117,13 +117,14 @@ open ~/Applications/ClawdSnip.app
 ./tests/settings.sh
 ./tests/screenshots.sh
 ./tests/screenshots.sh --integration
+./tests/motion.sh
 ./tests/media.sh
 ./tests/settings.sh --integration
 ```
 
-后两项需要 macOS 编码器/窗口服务，受限沙盒中可能无法运行；集成测试使用独立偏好域和临时设置窗口。
+媒体、剪贴板及界面集成检查需要 macOS 编码器/窗口服务，受限沙盒中可能无法运行。`motion.sh` 会短暂显示并录制专用动画窗口，不录麦克风，结束后自动清理测试录像；运行它的终端或开发工具需要已有录屏授权。快捷键集成检查使用独立偏好域和临时设置窗口。
 
-v0.4.0 本地验收通过 39 项录屏配置/生命周期检查、20 项快捷键检查、24 项截图/PNG/拼接检查，以及真实剪贴板、系统热键、合成双音源混音测试。实际滚动窗口连续拼接得到 1720 × 2000 的长图预览，控制条已排除；PNG 保存对话框已验证落盘。Apple 芯片 Mac 上已验证关闭麦克风时真实录屏能保存并录入内部测试音。真实麦克风采集、Intel 构建及重启后的自动启动尚未完整实测。
+已通过 39 项录屏配置/生命周期检查、20 项快捷键检查、24 项截图/PNG/拼接检查，以及剪贴板、系统热键、合成双音源混音检查。v0.4.1 补充真实动态录屏验收：电脑声音开启/关闭、清晰度选项和重复录制均通过；15 秒测试写入 456 个视频样本，12 个抽查时刻画面均不同，末段仍有动态变化，最大帧间隔 0.05 秒。实际长截图预览达到 1720 × 2000，PNG 保存流程已验证。Apple 芯片 Mac 上曾验证关闭麦克风时能录入内部测试音；真实麦克风采集、Intel 构建及重启后的自动启动尚未完整实测。
 
 ## 源码结构
 
