@@ -21,7 +21,7 @@ final class AppStatusMenu: NSObject, NSMenuDelegate {
         let toggle = menu.addItem(withTitle: visible ? "隐藏桌面宠物" : "显示桌面宠物", action: #selector(pick(_:)), keyEquivalent: "")
         toggle.tag = Int(AppAction.togglePet.rawValue); toggle.target = self
         menu.addItem(.separator())
-        for action in [AppAction.region, .window, .recording] {
+        for action in [AppAction.region, .window, .longScreenshot, .recording] {
             let suffix = shortcuts?()[action].map { "    \($0.title)" } ?? ""
             let entry = menu.addItem(withTitle: action.title + suffix, action: #selector(pick(_:)), keyEquivalent: "")
             entry.tag = Int(action.rawValue); entry.target = self

@@ -18,7 +18,7 @@ fi
 mkdir -p .build/modules
 swiftc -sdk "$SDKROOT" -target "$(uname -m)-apple-macosx15.0" -module-cache-path .build/modules -O -swift-version 5 -j1 \
   -framework Cocoa -framework ScreenCaptureKit -framework AVFoundation -framework VideoToolbox -framework Carbon -framework ServiceManagement \
-  -o "$BIN" main.swift RecordingOptions.swift RecordingFile.swift ScreenRecorder.swift RecordingUI.swift RegionSelector.swift HotKeyRules.swift GlobalHotKeys.swift SettingsUI.swift AppStatusMenu.swift
+  -o "$BIN" main.swift RecordingOptions.swift RecordingFile.swift ScreenRecorder.swift RecordingUI.swift RegionSelector.swift HotKeyRules.swift GlobalHotKeys.swift SettingsUI.swift AppStatusMenu.swift ScreenshotOutputOptions.swift ScreenshotFile.swift LongImageStitcher.swift ScreenshotOutputController.swift LongScreenshotController.swift
 ICONSET="$STAGE/AppIcon.iconset"
 mkdir -p "$ICONSET"
 for s in 16 32 128 256 512; do

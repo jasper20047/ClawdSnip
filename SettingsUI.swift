@@ -44,6 +44,7 @@ final class SettingsUI: NSObject, NSWindowDelegate {
     private var window: NSWindow?
     private var keyButtons = [AppAction: ShortcutButton]()
     private let visibilityButton = NSButton(checkboxWithTitle: "显示桌面宠物", target: nil, action: nil)
+    private let saveScreenshotButton = NSButton(checkboxWithTitle: "截图后选择保存到文件", target: nil, action: nil)
     private let loginButton = NSButton(checkboxWithTitle: "开机自动启动", target: nil, action: nil)
     private let loginState = NSTextField(labelWithString: "")
     private let feedback = NSTextField(wrappingLabelWithString: "点击“设置快捷键”，按下组合键即可保存。Esc 取消；可随时清除。")
@@ -58,7 +59,7 @@ final class SettingsUI: NSObject, NSWindowDelegate {
         window?.makeKeyAndOrderFront(nil)
     }
     private func build() {
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 532), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 620), styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "ClawdSnip · 设置"; window.isReleasedWhenClosed = false; window.delegate = self
         window.center(); self.window = window
         let content = window.contentView!
@@ -66,12 +67,12 @@ final class SettingsUI: NSObject, NSWindowDelegate {
             view.frame = NSRect(x: x, y: y, width: w, height: h); content.addSubview(view)
         }
         let title = NSTextField(labelWithString: "快捷键与偏好")
-        title.font = .systemFont(ofSize: 21, weight: .semibold); place(title, y: 478, h: 30)
+        title.font = .systemFont(ofSize: 21, weight: .semibold); place(title, y: 566, h: 30)
         let hint = NSTextField(labelWithString: "全局快捷键：在其他应用里也能使用，需包含 ⌘、⌥ 或 ⌃。")
         hint.font = .systemFont(ofSize: 12); hint.textColor = .secondaryLabelColor
-        place(hint, y: 445)
+        place(hint, y: 533)
         for (index, action) in AppAction.allCases.enumerated() {
-            let y = CGFloat(398 - index * 45)
+            let y = CGFloat(486 - index * 45)
             place(NSTextField(labelWithString: action.title), y: y, w: 160)
             let record = ShortcutButton(title: "设置快捷键…", target: self, action: #selector(recordKey(_:)))
             record.bezelStyle = .rounded; record.tag = Int(action.rawValue)
@@ -84,8 +85,10 @@ final class SettingsUI: NSObject, NSWindowDelegate {
             place(clear, x: 462, y: y - 2, w: 74, h: 30)
         }
         feedback.font = .systemFont(ofSize: 12); feedback.textColor = .secondaryLabelColor
-        place(feedback, y: 162, h: 43)
-        let divider = NSBox(); divider.boxType = .separator; place(divider, y: 149, h: 1)
+        place(feedback, y: 205, h: 43)
+        let divider = NSBox(); divider.boxType = .separator; place(divider, y: 192, h: 1)
+        saveScreenshotButton.target = self; saveScreenshotButton.action = #selector(saveScreenshotChanged)
+        place(saveScreenshotButton, y: 151, w: 380)
         visibilityButton.target = self; visibilityButton.action = #selector(visibilityChanged)
         place(visibilityButton, y: 114, w: 220)
         let recover = NSTextField(labelWithString: "隐藏后可从菜单栏图标恢复。")
@@ -104,6 +107,7 @@ final class SettingsUI: NSObject, NSWindowDelegate {
             button.title = hotKeys.bindings[action]?.title ?? "设置快捷键…"
             button.toolTip = "点击后按组合键；Esc 取消"
         }
+        saveScreenshotButton.state = (UserDefaults.standard.object(forKey: "saveScreenshots") as? Bool ?? false) ? .on : .off
         visibilityButton.state = getVisibility() ? .on : .off
         refreshLogin()
     }
@@ -140,6 +144,7 @@ final class SettingsUI: NSObject, NSWindowDelegate {
         catch { feedback.stringValue = error.localizedDescription }
         refresh()
     }
+    @objc private func saveScreenshotChanged() { UserDefaults.standard.set(saveScreenshotButton.state == .on, forKey: "saveScreenshots") }
     @objc private func visibilityChanged() { setVisibility(visibilityButton.state == .on); refresh() }
     @objc private func openLoginSettings() { SMAppService.openSystemSettingsLoginItems() }
     @objc private func loginChanged() {

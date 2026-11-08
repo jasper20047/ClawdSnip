@@ -21,9 +21,12 @@ func buildMenu() -> [MenuItem] {
     [
         MenuItem(title: "框选截图", icon: Icons.region) { $0.capture(.region) },
         MenuItem(title: "窗口截图", icon: Icons.window) { $0.capture(.window) },
+        MenuItem(title: "长截图…", icon: Icons.long) { $0.showLongScreenshot() },
         MenuItem(title: "录屏…", icon: Icons.record) { $0.showRecording() },
         MenuItem.toggle(title: "自动粘贴", icon: Icons.paste,
                         isOn: { Prefs.autoPaste }, flip: { Prefs.autoPaste.toggle() }),
+        MenuItem.toggle(title: "保存截图", icon: Icons.save,
+                        isOn: { Prefs.saveScreenshots }, flip: { Prefs.saveScreenshots.toggle() }),
         .separator,
         MenuItem(title: "设置…", icon: Icons.settings) { $0.showSettings() },
         MenuItem(title: "隐藏宠物", icon: Icons.hide) { $0.setPetVisible(false) },
@@ -60,6 +63,10 @@ enum Palette {
 }
 
 enum Prefs {
+    static var saveScreenshots: Bool {
+        get { UserDefaults.standard.object(forKey: "saveScreenshots") as? Bool ?? false }
+        set { UserDefaults.standard.set(newValue, forKey: "saveScreenshots") }
+    }
     static var autoPaste: Bool {
         get { UserDefaults.standard.object(forKey: "autoPaste") as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: "autoPaste") }
@@ -72,6 +79,8 @@ enum Icons { // 菜单图标 7×7
     static let region = ["###.###", "#.....#", "#.....#", ".......", "#.....#", "#.....#", "###.###"]
     static let window = ["#######", "#######", "#.....#", "#.....#", "#.....#", "#.....#", "#######"]
     static let paste = ["..###..", "#######", "#.....#", "#.###.#", "#.....#", "#.##..#", "#######"]
+    static let long = ["#######", "#.....#", "#..#..#", "#..#..#", "#..#..#", "#.....#", "#######"]
+    static let save = ["#######", "#.#.#.#", "#.....#", "#.###.#", "#.#.#.#", "#.###.#", "#######"]
     static let record = ["..###..", ".#####.", "#######", "#######", "#######", ".#####.", "..###.."]
     static let settings = ["..#.#..", ".#####.", "##...##", ".#.#.#.", "##...##", ".#####.", "..#.#.."]
     static let hide = [".......", ".#####.", "#.....#", "#..#..#", "#.....#", ".#####.", "......."]
@@ -708,6 +717,21 @@ final class Controller: NSObject, NSApplicationDelegate {
     private var askedAccessibility = false
     private var askedScreenRecording = false
     private let recordingUI = RecordingUI()
+    private let screenshotOutput = ScreenshotOutputController()
+    private var captureProcess: Process?
+    private var captureID: UUID?
+    private var quitAfterCapture = false
+    private lazy var longScreenshot = LongScreenshotController { [weak self] image, options, quitting, completion in
+        guard let self else { completion(false); return }
+        self.screenshotOutput.deliver(image, options: options, includeTIFF: false, quitting: quitting, completion: completion)
+    }
+
+    func showLongScreenshot() {
+        guard !busy, !recordingUI.isBusy, !screenshotOutput.isBusy else { return }
+        collapse(animated: false)
+        longScreenshot.handleShortcut()
+    }
+
     private var hotKeys: GlobalHotKeys?
     private var settingsUI: SettingsUI?
     private var statusMenu: AppStatusMenu?
@@ -733,8 +757,9 @@ final class Controller: NSObject, NSApplicationDelegate {
         switch action {
         case .region: capture(.region)
         case .window: capture(.window)
+        case .longScreenshot: showLongScreenshot()
         case .recording:
-            guard !busy else { return }
+            guard !busy, !longScreenshot.isBusy, !screenshotOutput.isBusy else { return }
             collapse(animated: false)
             recordingUI.handleShortcut()
         case .quit: NSApp.terminate(nil)
@@ -765,6 +790,9 @@ final class Controller: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        // Reopening during capture must reveal that workflow, not cover the source with settings.
+        if longScreenshot.isBusy { longScreenshot.show(); return false }
+        if busy || screenshotOutput.isBusy || recordingUI.isBusy { return false }
         setPetVisible(true); showSettings(); return false
     }
 
@@ -772,13 +800,24 @@ final class Controller: NSObject, NSApplicationDelegate {
 
 
     func showRecording() {
-        guard !busy else { return }
+        guard !busy, !longScreenshot.isBusy, !screenshotOutput.isBusy else { return }
         collapse(animated: false)
         recordingUI.show()
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        recordingUI.shouldTerminate()
+        if recordingUI.isBusy { return recordingUI.shouldTerminate() }
+        if screenshotOutput.isBusy { return screenshotOutput.shouldTerminate() }
+        if longScreenshot.isBusy { return longScreenshot.shouldTerminate() }
+        if busy {
+            let alert = NSAlert(); alert.messageText = "当前正在截图"
+            alert.addButton(withTitle: "取消截图并退出"); alert.addButton(withTitle: "继续截图")
+            if alert.runModal() != .alertFirstButtonReturn { return .terminateCancel }
+            quitAfterCapture = true
+            captureProcess?.terminate()
+            return .terminateLater
+        }
+        return .terminateNow
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -803,6 +842,7 @@ final class Controller: NSObject, NSApplicationDelegate {
         if petVisible { panel.orderFrontRegardless() }
 
         configureSettings()
+        screenshotOutput.onMessage = { [weak self] in self?.toast($0) }
         wakeLife()
 
         let ws = NSWorkspace.shared.notificationCenter
@@ -817,6 +857,7 @@ final class Controller: NSObject, NSApplicationDelegate {
         toast("Clawd 就位 · 悬停展开")
         if CommandLine.arguments.contains("--recording-settings") { showRecording() }
         if CommandLine.arguments.contains("--settings") { showSettings() }
+        if CommandLine.arguments.contains("--long-screenshot") { showLongScreenshot() }
     }
 
     @objc private func pause() { paused = true; tickTimer?.invalidate(); tickTimer = nil }
@@ -1074,74 +1115,53 @@ final class Controller: NSObject, NSApplicationDelegate {
     }
 
     func capture(_ mode: CaptureMode) {
-        guard !busy, !recordingUI.isBusy else { toast("请先完成录屏"); return }
+        guard !busy, !recordingUI.isBusy, !longScreenshot.isBusy, !screenshotOutput.isBusy else { toast("请先完成当前截图或录屏"); return }
         guard ensureScreenRecording() else { return }
         collapse(animated: false)
         if hovered { setHovered(false) }
         busy = true
-        tickTimer?.invalidate() // 截图期间 Clawd 不动
-        tickTimer = nil
-        toastPanel?.orderOut(nil)
-
+        let token = UUID(); captureID = token; quitAfterCapture = false
+        tickTimer?.invalidate(); tickTimer = nil; toastPanel?.orderOut(nil)
         let claude = NSRunningApplication.runningApplications(withBundleIdentifier: claudeBundleID).first
         let claudeWasFront = claude?.isActive ?? false
-        claude?.hide() // Claude 退到最底层（隐藏）
-        panel.orderOut(nil) // 自己也别出现在截图里
-
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ClawdSnip", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let file = dir.appendingPathComponent("snip.png")
-        try? FileManager.default.removeItem(at: file)
-        let args = mode.args + [file.path]
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in // 等隐藏动画走完
-            DispatchQueue.global(qos: .userInitiated).async {
-                let proc = Process()
-                proc.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-                proc.arguments = args
-                do { try proc.run(); proc.waitUntilExit() } catch {}
-                DispatchQueue.main.async {
-                    self?.finishCapture(file: file, claude: claude, claudeWasFront: claudeWasFront)
-                }
+        claude?.hide(); panel.orderOut(nil)
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("ClawdSnip-\(token.uuidString).png")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            guard let self, self.captureID == token else { return }
+            if self.quitAfterCapture {
+                claude?.unhide(); self.releaseCapture(); NSApp.reply(toApplicationShouldTerminate: true); return
             }
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+            process.arguments = mode.args + [file.path]
+            process.terminationHandler = { _ in
+                Task { @MainActor in self.finishCapture(file: file, token: token, claude: claude, claudeWasFront: claudeWasFront) }
+            }
+            self.captureProcess = process
+            do { try process.run() }
+            catch { self.finishCapture(file: file, token: token, claude: claude, claudeWasFront: claudeWasFront) }
         }
     }
 
-    private func finishCapture(file: URL, claude: NSRunningApplication?, claudeWasFront: Bool) {
-        busy = false
+    private func finishCapture(file: URL, token: UUID, claude: NSRunningApplication?, claudeWasFront: Bool) {
+        defer { try? FileManager.default.removeItem(at: file) }
+        guard captureID == token else { return }
+        captureProcess = nil
+        if quitAfterCapture {
+            claude?.unhide(); releaseCapture(); NSApp.reply(toApplicationShouldTerminate: true); return
+        }
+        guard let data = try? Data(contentsOf: file), !data.isEmpty, let image = try? ScreenshotFile.decode(data) else {
+            if let claude { claude.unhide(); if claudeWasFront { bringToFront(claude) } }
+            releaseCapture(); return
+        }
+        screenshotOutput.deliver(image, png: data, options: ScreenshotOutputOptions.saved(), claude: claude) { [weak self] _ in self?.releaseCapture() }
+    }
+
+    private func releaseCapture() {
+        captureID = nil; captureProcess = nil; busy = false; quitAfterCapture = false
         panel.alphaValue = idleAlpha
         if petVisible { panel.orderFrontRegardless() }
-        wakeLife()
-        checkHover()
-
-        guard let data = try? Data(contentsOf: file), !data.isEmpty else {
-            // 按了 Esc 取消：把 Claude 恢复原样
-            if let claude {
-                claude.unhide()
-                if claudeWasFront { bringToFront(claude) }
-            }
-            return
-        }
-
-        let pb = NSPasteboard.general
-        pb.declareTypes([.png, .tiff], owner: nil)
-        pb.setData(data, forType: .png)
-        if let tiff = NSImage(data: data)?.tiffRepresentation { pb.setData(tiff, forType: .tiff) }
-
-        guard let claude, !claude.isTerminated else { toast("已复制到剪贴板"); return }
-        claude.unhide()
-        bringToFront(claude)
-
-        guard Prefs.autoPaste else { toast("已复制 · ⌘V 粘贴"); return }
-        guard AXIsProcessTrusted() else {
-            if !askedAccessibility {
-                askedAccessibility = true
-                _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
-            }
-            toast("已复制 · ⌘V 粘贴", seconds: 2.4)
-            return
-        }
-        pasteWhenFront(claude, tries: 0)
+        wakeLife(); checkHover()
     }
 
     private func bringToFront(_ app: NSRunningApplication) {
@@ -1155,20 +1175,7 @@ final class Controller: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func pasteWhenFront(_ app: NSRunningApplication, tries: Int) {
-        if app.isActive {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
-                postCommandV()
-                self?.toast("已粘贴到 Claude", seconds: 1.4)
-            }
-        } else if tries < 15 {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                self?.pasteWhenFront(app, tries: tries + 1)
-            }
-        } else {
-            toast("已复制 · ⌘V 粘贴")
-        }
-    }
+
 }
 
 func postCommandV() {

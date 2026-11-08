@@ -13,5 +13,5 @@ for frequency in [440,880]:
   f.setnchannels(1); f.setsampwidth(2); f.setframerate(48000)
   f.writeframes(b''.join(struct.pack('<h',int(9000*math.sin(2*math.pi*frequency*i/48000))) for i in range(96000)))
 PY
-swiftc -sdk "${SDKROOT:-$(xcrun --sdk macosx --show-sdk-path)}" -module-cache-path .test-build/modules -swift-version 5 -parse-as-library RecordingOptions.swift RecordingFile.swift tests/MediaTests.swift -o .test-build/media-tests
+swiftc -sdk /Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk -module-cache-path .test-build/modules -swift-version 5 -parse-as-library RecordingOptions.swift RecordingFile.swift tests/MediaTests.swift -o .test-build/media-tests
 .test-build/media-tests "$ROOT"

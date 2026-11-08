@@ -3,8 +3,10 @@ import Carbon
 
 enum AppAction: UInt32, Codable, CaseIterable {
     case region = 1, window, recording, quit, togglePet
+    case longScreenshot = 6
     var title: String {
         switch self {
+        case .longScreenshot: return "长截图 / 完成采集"
         case .region: return "框选截图"
         case .window: return "窗口截图"
         case .recording: return "录屏 / 停止录屏"

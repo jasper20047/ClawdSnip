@@ -6,6 +6,7 @@ private final class SelectionWindow: NSWindow {
 
 @MainActor
 final class RegionSelector: NSView {
+    var prompt = "拖动框选录制区域 · Esc 取消"
     private var origin: NSPoint?
     private var selection = CGRect.zero
     private var overlay: NSWindow?
@@ -32,7 +33,7 @@ final class RegionSelector: NSView {
             NSColor.white.setStroke()
             let border = NSBezierPath(rect: selection); border.lineWidth = 2; border.stroke()
         }
-        let text = "拖动框选录制区域 · Esc 取消"
+        let text = prompt
         text.draw(at: NSPoint(x: 24, y: 24), withAttributes: [.font: NSFont.systemFont(ofSize: 22, weight: .semibold), .foregroundColor: NSColor.white])
     }
     override func mouseDown(with event: NSEvent) { origin = convert(event.locationInWindow, from: nil) }

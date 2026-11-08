@@ -18,6 +18,11 @@ import Carbon
         try ShortcutRules.validate([.region: first, .window: second]); count += 1
         let defaults = UserDefaults(suiteName: "ClawdSnip-settings-test-\(UUID().uuidString)")!
         check(ShortcutRules.load(from: defaults).isEmpty, "no default global key takeover")
+        let old=Data("[{\"action\":1,\"key\":{\"keyCode\":18,\"modifiers\":2304,\"keyLabel\":\"1\"}},{\"action\":4,\"key\":{\"keyCode\":19,\"modifiers\":2304,\"keyLabel\":\"2\"}}]".utf8)
+        defaults.set(old,forKey:"globalShortcuts")
+        check(ShortcutRules.load(from:defaults)[.region]==first,"old screenshot binding migrates unchanged")
+        check(ShortcutRules.load(from:defaults)[.quit]==second,"old quit binding is not renumbered")
+        check(ShortcutRules.load(from:defaults)[.longScreenshot]==nil,"long screenshot starts unassigned")
         try ShortcutRules.save([.region: first, .recording: second], to: defaults)
         check(ShortcutRules.load(from: defaults)[.region] == first, "shortcut persists")
         try ShortcutRules.save([:], to: defaults)

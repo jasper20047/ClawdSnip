@@ -6,7 +6,13 @@
 
 ![上游宠物与菜单预览](docs/preview.png)
 
+最新版本：**v0.4.0**，新增截图保存开关与长截图。
+
 ## 新增功能
+
+- 独立“保存截图”开关：普通截图完成后可选择 PNG 文件名与保存位置，取消保存仍复制。
+- 长截图：框选区域后手动缓慢下滚，自动采集拼接，完成后预览；本次保存/自动粘贴可单独选择。
+- 长截图快捷键可在设置中自定义，默认不占用组合键。
 
 - 全屏或框选区域录屏，支持多屏选择。
 - 720p、1080p、1440p 和原始分辨率，最高 30 帧/秒；保持比例，不放大小选区，并显示实际输出像素。
@@ -16,7 +22,7 @@
 - 设置窗口中的原生开机启动开关。
 - 隐藏宠物后保留菜单栏入口，快捷键继续可用；再次打开应用也可找回。
 
-发布文件也保存在 [`dist`](dist) 目录；[源码包](https://github.com/jasper20047/ClawdSnip/raw/refs/tags/v0.3.0/dist/ClawdSnip-v0.3.0-source.zip) · [SHA-256 校验文件](https://github.com/jasper20047/ClawdSnip/blob/v0.3.0/dist/SHA256SUMS-v0.3.0.txt)。
+发布文件也保存在 [`dist`](dist) 目录；[源码包](https://github.com/jasper20047/ClawdSnip/raw/refs/tags/v0.4.0/dist/ClawdSnip-v0.4.0-source.zip) · [SHA-256 校验文件](https://github.com/jasper20047/ClawdSnip/blob/v0.4.0/dist/SHA256SUMS-v0.4.0.txt)。
 
 ## 系统要求
 
@@ -27,7 +33,7 @@
 
 ## 下载安装
 
-1. 打开 [Releases](https://github.com/jasper20047/ClawdSnip/releases)，点击安装包下载链接；也可直接[下载 Apple 芯片版](https://github.com/jasper20047/ClawdSnip/raw/refs/tags/v0.3.0/dist/ClawdSnip-v0.3.0-macos-arm64.zip)。
+1. 打开 [Releases](https://github.com/jasper20047/ClawdSnip/releases)，点击安装包下载链接；也可直接[下载 Apple 芯片版](https://github.com/jasper20047/ClawdSnip/raw/refs/tags/v0.4.0/dist/ClawdSnip-v0.4.0-macos-arm64.zip)。
 2. 解压后，把 `ClawdSnip.app` 放到个人的“应用程序”文件夹（`~/Applications`），再打开。
 3. 这是采用临时签名、未经 Apple 公证的本机构建。若 macOS 阻止打开，请在确认下载来源后，按系统“隐私与安全性”中的提示处理；无需关闭系统安全保护。
 
@@ -60,7 +66,11 @@ tccutil reset ScreenCapture local.fwj.ClawdSnip
 
 ### 截图
 
-单击宠物框选截图；悬停菜单也提供“框选截图”“窗口截图”“自动粘贴”。拖动宠物可换位置。
+单击宠物框选截图；悬停菜单也提供“框选截图”“窗口截图”“保存截图”“自动粘贴”。保存与自动粘贴分别开关。开启保存后可选择 PNG 文件名与文件夹；取消保存仍复制。拖动宠物可换位置。
+
+### 长截图
+
+选择“长截图…”并框选固定区域，避开工具栏、固定页头和视频。手动缓慢向下滚动，每次保留一些重叠内容，并稍停等画面稳定。控制条点“完成”进入预览，再选择本次是否保存及自动粘贴。反向滚动或重叠不足会提示，不会替换最后成功采集的位置。最多 4000 万像素、30000 像素高，到达上限后预览已有内容。
 
 ### 只录电脑内部声音
 
@@ -105,13 +115,15 @@ open ~/Applications/ClawdSnip.app
 ```bash
 ./tests/run.sh
 ./tests/settings.sh
+./tests/screenshots.sh
+./tests/screenshots.sh --integration
 ./tests/media.sh
 ./tests/settings.sh --integration
 ```
 
 后两项需要 macOS 编码器/窗口服务，受限沙盒中可能无法运行；集成测试使用独立偏好域和临时设置窗口。
 
-本次发布已通过录屏配置/生命周期、快捷键校验/持久化/回滚、真实系统热键注册及焦点恢复、合成双音源混音测试。Apple 芯片 Mac 上已验证关闭麦克风时真实录屏能保存并录入内部测试音。真实麦克风采集、Intel 构建及重启后的自动启动尚未完整实测。
+v0.4.0 本地验收通过 39 项录屏配置/生命周期检查、20 项快捷键检查、24 项截图/PNG/拼接检查，以及真实剪贴板、系统热键、合成双音源混音测试。实际滚动窗口连续拼接得到 1720 × 2000 的长图预览，控制条已排除；PNG 保存对话框已验证落盘。Apple 芯片 Mac 上已验证关闭麦克风时真实录屏能保存并录入内部测试音。真实麦克风采集、Intel 构建及重启后的自动启动尚未完整实测。
 
 ## 源码结构
 
